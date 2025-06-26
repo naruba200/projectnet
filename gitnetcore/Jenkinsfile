@@ -1,0 +1,61 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Clone') {
+            steps {
+                echo ' Cloning source code'
+                git branch: 'main', url: 'https://github.com/naruba200/projectnet.git'
+            }
+        }
+
+        stage('Restore Packages') {
+            steps {
+                echo ' Restoring packages'
+                bat 'dotnet restore'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo ' Building project'
+                bat 'dotnet build --configuration Release'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo ' Running tests'
+                bat 'dotnet test --no-build --verbosity normal'
+            }
+        }
+
+        stage('Publish to /publish') {
+            steps {
+                echo ' Publishing project'
+                bat 'dotnet publish -c Release -o ./publish'
+            }
+        }
+
+        stage('Copy to IIS folder') {
+            steps {
+                echo ' Copying to IIS folder'
+                bat 'xcopy "%WORKSPACE%\\publish" "C:\\wwwroot\\myproject" /E /Y /I /R'
+            }
+        }
+
+        stage('Deploy to IIS') {
+            steps {
+                echo ' Deploying to IIS on port 81'
+                powershell '''
+                Import-Module WebAdministration
+                if (-not (Test-Path IIS:\\Sites\\MySite)) {
+                    New-Website -Name "MySite" -Port 81 -PhysicalPath "C:\\wwwroot\\myproject" -ApplicationPool ".NET v4.5"
+                } else {
+                    Restart-WebAppPool -Name "DefaultAppPool"
+                }
+                '''
+            }
+        }
+    }
+}
