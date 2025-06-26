@@ -37,23 +37,31 @@ pipeline {
             }
         }
 
-        stage('Copy to IIS folder') {
+        stage('Stop IIS') {
             steps {
-                echo ' Copying to IIS folder'
-                bat 'xcopy "%WORKSPACE%\\publish" "C:\\wwwroot\\myproject" /E /Y /I /R'
+                echo '🛑 Stopping IIS'
+                bat 'iisreset /stop'
             }
         }
 
-        stage('Deploy to IIS') {
+        stage('Copy to IIS folder') {
             steps {
-                echo ' Deploying to IIS on port 81'
+                echo '📂 Copying to IIS folder'
+                bat 'xcopy "%WORKSPACE%\\publish\\*" "C:\\wwwroot\\myproject\\" /E /Y /I /R'
+            }
+        }
+
+        stage('Start IIS + Deploy') {
+            steps {
+                echo '🌐 Starting IIS and Deploying site'
+                bat 'iisreset /start'
                 powershell '''
-                Import-Module WebAdministration
-                if (-not (Test-Path IIS:\\Sites\\MySite)) {
-                    New-Website -Name "MySite" -Port 81 -PhysicalPath "C:\\wwwroot\\myproject" -ApplicationPool ".NET v4.5"
-                } else {
-                    Restart-WebAppPool -Name "DefaultAppPool"
-                }
+                    Import-Module WebAdministration
+                    if (-not (Test-Path IIS:\\Sites\\MySite)) {
+                        New-Website -Name "MySite" -Port 81 -PhysicalPath "C:\\wwwroot\\myproject"
+                    } else {
+                        Restart-WebAppPool -Name "DefaultAppPool"
+                    }
                 '''
             }
         }
